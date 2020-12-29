@@ -1,4 +1,4 @@
-#!/usr/local/opt/python@3.8/bin/python3
+#!/usr/bin/python3
 #
 # Update GoDaddy DNS "A" Record.
 #
@@ -43,6 +43,17 @@ version='0.4'
 author='Carl Edman (CarlEdman@gmail.com)'
 
 import sys, json, argparse, socket
+import time
+import logging
+
+# create logger
+log = logging.getLogger(__file__)
+log.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+log.addHandler(ch)
 
 if sys.version_info > (3,):
   from urllib.request import urlopen, Request
@@ -81,7 +92,7 @@ parser.add_argument('--force', type=bool, default=False,
 
 args = parser.parse_args()
 
-def main():
+def check():
   hostnames = args.hostname.split('.')
   if len(hostnames)<2:
     msg = 'Hostname "{}" is not a fully-qualified host name of form "HOST.DOMAIN.TOP".'.format(args.hostname)
@@ -96,8 +107,9 @@ def main():
       args.ip = resp.strip()
     except URLError:
       msg = 'Unable to automatically obtain IP address from http://ipv4.icanhazip.com/.'
-      raise Exception(msg)
-  
+      log.debug("ERROR:" + msg)
+      return
+
   ipslist = args.ip.split(",")
   for ipsiter in ipslist:
     ips = ipsiter.split('.')
@@ -105,17 +117,19 @@ def main():
       not ips[0].isdigit() or not ips[1].isdigit() or not ips[2].isdigit() or not ips[3].isdigit() or \
       int(ips[0])>255 or int(ips[1])>255 or int(ips[2])>255 or int(ips[3])>255:
       msg = '"{}" is not valid IP address.'.format(ips)
-      raise Exception(msg)
+      log.debug("ERROR:" + msg)
+      return
 
   if not args.force and len(ipslist)==1:
     try:
       dnsaddr = socket.gethostbyname(args.hostname)
       if ipslist[0] == dnsaddr:
         msg = '{} already has IP address {}.'.format(args.hostname, dnsaddr)
-        raise Exception(msg)
+        log.debug(msg)
+        return
     except:
       pass
-             
+
   url = 'https://api.godaddy.com/v1/domains/{}/records/A/{}'.format('.'.join(hostnames[1:]),hostnames[0])
   data = json.dumps([ { "data": ip, "ttl": args.ttl, "name": hostnames[0], "type": "A" } for ip in  ipslist])
   if sys.version_info > (3,):  data = data.encode('utf-8')
@@ -136,13 +150,13 @@ def main():
     elif e.code==401:
       if args.key and args.secret:
         msg = '''Unable to set IP address: --key or --secret option incorrect.
-Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
+                 Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
       else:
         msg = '''Unable to set IP address: --key or --secret option missing.
-Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
+                 Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
     elif e.code==403:
         msg = '''Unable to set IP address: customer identified by --key and --secret options denied permission.
-Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
+                 Correct values can be obtained from from https://developer.godaddy.com/keys/ and are ideally placed in a % file.'''
     elif e.code==404:
         msg = 'Unable to set IP address: {} not found at GoDaddy.'.format(args.hostname)
     elif e.code==422:
@@ -153,12 +167,22 @@ Correct values can be obtained from from https://developer.godaddy.com/keys/ and
         msg = 'Unable to set IP address: "{}" is unavailable.'.format(args.hostname)
     else:
       msg = 'Unable to set IP address: GoDaddy API failure because "{}".'.format(e.reason)
-    raise Exception(msg)
+    log.debug("ERROR:" + msg)
+    return
   except URLError as e:
     msg = 'Unable to set IP address: GoDaddy API failure because "{}".'.format(e.reason)
-    raise Exception(msg)
+    log.debug("ERROR:" + msg)
+    return
 
   print('IP address for {} set to {}.'.format(args.hostname,args.ip))
+
+
+def main():
+  # run periodically
+  while True:
+    log.debug("running...")
+    check()
+    time.sleep(60)
 
 if __name__ == '__main__':
   main()
