@@ -35,9 +35,6 @@
 #
 # Then just invoke `godaddy-ddns %godaddy-ddns.config`
 
-# key 3mM44UaCMuFhiX_4xvAxkdxNdMBv3LoZQeKsU
-# secret WgBC2GACsagbxHaUHUAVwz
-
 prog='godaddy-ddns'
 version='0.4'
 author='Carl Edman (CarlEdman@gmail.com)'
