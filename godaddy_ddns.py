@@ -36,8 +36,8 @@
 # Then just invoke `godaddy-ddns %godaddy-ddns.config`
 
 prog='godaddy-ddns'
-version='0.4'
-author='Carl Edman (CarlEdman@gmail.com)'
+version='0.5'
+author='me'
 
 import sys, json, argparse, socket
 import time
@@ -48,7 +48,7 @@ log = logging.getLogger(__file__)
 log.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 log.addHandler(ch)
 
@@ -99,9 +99,14 @@ def check():
 
   if not args.ip:
     try:
-      with urlopen("https://ipv4.icanhazip.com/") as f: resp=f.read()
+      req = Request("https://ipv4.icanhazip.com/")
+      req.add_header('Cache-Control', 'max-age=0') # remove any server-side caching
+      f = urlopen(req)
+      resp = f.read()
+      f.close()
       if sys.version_info > (3,): resp = resp.decode('utf-8')
       args.ip = resp.strip()
+
     except URLError:
       msg = 'Unable to automatically obtain IP address from http://ipv4.icanhazip.com/.'
       log.debug("ERROR:" + msg)
@@ -116,6 +121,8 @@ def check():
       msg = '"{}" is not valid IP address.'.format(ips)
       log.debug("ERROR:" + msg)
       return
+
+  log.debug("{}".format(ipslist))
 
   if not args.force and len(ipslist)==1:
     try:
@@ -171,7 +178,7 @@ def check():
     log.debug("ERROR:" + msg)
     return
 
-  print('IP address for {} set to {}.'.format(args.hostname,args.ip))
+  log.debug('IP address for {} set to {}.'.format(args.hostname,args.ip))
 
 
 def main():
