@@ -89,7 +89,7 @@ parser.add_argument('--force', type=bool, default=False,
 
 args = parser.parse_args()
 
-def check():
+def check(argip):
   hostnames = args.hostname.split('.')
   if len(hostnames)<2:
     msg = 'Hostname "{}" is not a fully-qualified host name of form "HOST.DOMAIN.TOP".'.format(args.hostname)
@@ -97,22 +97,24 @@ def check():
   elif len(hostnames)<3:
     hostnames.insert(0,'@')
 
-  if not args.ip:
+  if not argip:
     try:
       req = Request("https://ipv4.icanhazip.com/")
+      req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)')
       req.add_header('Cache-Control', 'max-age=0') # remove any server-side caching
       f = urlopen(req)
+      #log.debug("f.status {}".format(f.status))
       resp = f.read()
       f.close()
       if sys.version_info > (3,): resp = resp.decode('utf-8')
-      args.ip = resp.strip()
+      argip = resp.strip()
 
     except URLError:
       msg = 'Unable to automatically obtain IP address from http://ipv4.icanhazip.com/.'
       log.debug("ERROR:" + msg)
       return
 
-  ipslist = args.ip.split(",")
+  ipslist = argip.split(",")
   for ipsiter in ipslist:
     ips = ipsiter.split('.')
     if len(ips)!=4 or \
@@ -178,14 +180,14 @@ def check():
     log.debug("ERROR:" + msg)
     return
 
-  log.debug('IP address for {} set to {}.'.format(args.hostname,args.ip))
+  log.debug('IP address for {} set to {}.'.format(args.hostname,argip))
 
 
 def main():
   # run periodically
   while True:
     log.debug("running...")
-    check()
+    check(args.ip)
     time.sleep(60)
 
 if __name__ == '__main__':
